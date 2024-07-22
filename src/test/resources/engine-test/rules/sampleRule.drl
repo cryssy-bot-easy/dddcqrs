@@ -1,0 +1,44 @@
+//created on: Jul 23, 2012
+package com.ucpb.tfs.rules.charges
+
+import java.math.BigDecimal
+import java.util.HashMap
+
+declare ServiceTransaction
+	product : String          // LC, DAA, ...
+	documentType : String     // FOREIGN, DOMESTIC
+	subType1 : String         // CASH, STANDBY, REGULAR
+	subType2 : String         // SIGHT, USANCE
+	serviceType : String	  // OPENING, AMMENDMENT, ADJUSTMENT, CANCELLATION
+	
+	productAmount : java.math.BigInteger
+end;
+
+declare Charges
+    charges : java.util.HashMap
+end;
+
+
+
+rule "Determine which charges are applicable"
+    dialect "java"
+    when
+        //conditions
+        p : ServiceTransaction(product.equals("LC"))
+    then
+        //actions
+        System.out.println("the product is LC");
+
+        HashMap<String, BigDecimal> ch = new HashMap<String, BigDecimal>();
+        ch.put("Bank Commission",0.0);
+end
+
+
+rule "Handle Bank commission"
+    dialect "java"
+    when
+        eval(ch.get("Bank Commission") > 0 )
+    then
+        System.out.println("we have bank commission");
+
+end

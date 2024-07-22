@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-
+       //Hibernate/Hibernate Mapping DTD 3.0//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping>
+    <class name="com.incuventure.tests.persistence.domain.Employee" table="Employee">
+        <!--<composite-id name="id" class="com.ipc.leaverequest.domain.Employee">-->
+            <!--<key-property name="firstName"/>-->
+            <!--<key-property name="lastName"/>-->
+        <!--</composite-id>-->
+        <id name="id" column="id" access="field">
+            <generator class="increment" />
+        </id>
+        <property name="firstName" type="java.lang.String" access="field">
+            <column name="firstname"/>
+        </property>
+        <property name="lastName" type="java.lang.String" access="field">
+            <column name="lastname"/>
+        </property>
+        <property name="middleName" type="java.lang.String" access="field">
+            <column name="middlename"/>
+        </property>
+    </class>
+</hibernate-mapping>

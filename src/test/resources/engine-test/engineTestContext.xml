@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd
+        http://www.springframework.org/schema/jdbc
+        http://www.springframework.org/schema/jdbc/spring-jdbc.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!--Configuring JBPM5 persistence in Spring https://community.jboss.org/message/638792?_sscc=t-->
+    <!-- Bitronix Transaction Manager embedded configuration -->
+    <bean id="jbpmPersistenceDataSource" class="org.apache.commons.dbcp.BasicDataSource" >
+        <property name="driverClassName" value="org.hsqldb.jdbcDriver" />
+        <!--<property name="url" value="jdbc:hsqldb:file:/tfs;shutdown=false" />-->
+        <property name="url" value="jdbc:hsqldb:mem:jbpmPDS" />
+        <property name="username" value="sa" />
+        <property name="password" value="" />
+    </bean>
+
+    <bean id="xadataSource" class="bitronix.tm.resource.jdbc.PoolingDataSource"
+          init-method="init" destroy-method="close">
+        <property name="className"
+                  value="org.hsqldb.jdbc.pool.JDBCXADataSource" />
+        <property name="uniqueName" value="jdbc/testDS1" />
+        <property name="minPoolSize" value="1" />
+        <property name="maxPoolSize" value="5" />
+        <property name="allowLocalTransactions" value="true" />
+        <property name="driverProperties">
+            <props>
+                <prop key="Url">jdbc:hsqldb:mem:jbpmPDS</prop>
+                <prop key="user">sa</prop>
+                <prop key="password"></prop>
+            </props>
+        </property>
+    </bean>
+
+    <bean id="txManager"
+          class="org.springframework.transaction.jta.JtaTransactionManager">
+        <property name="transactionManager" ref="bitronixTransactionManager" />
+        <property name="userTransaction" ref="bitronixTransactionManager" />
+    </bean>
+
+    <bean id="bitronixTransactionManager" factory-method="getTransactionManager"
+          class="bitronix.tm.TransactionManagerServices" depends-on="xadataSource,txManager"
+          destroy-method="shutdown" />
+
+    <bean id="entityManagerFactoryJbpmPersistanceJpa"
+          class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+        <property name="dataSource" ref="xadataSource" />
+        <property name="persistenceUnitName" value="org.jbpm.persistence.jpa" />
+        <property name="persistenceXmlLocation" value="classpath:META-INF/persistence.xml" />
+        <property name="jpaVendorAdapter">
+            <bean class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+                <property name="databasePlatform" value="org.hibernate.dialect.HSQLDialect" />
+                <property name="showSql" value="false" />
+                <property name="generateDdl" value="true" />
+            </bean>
+        </property>
+    </bean>
+
+
+    <!-- DataSource: hsqldb file -->
+    <!--destroy-method="close"-->
+    <bean id="myDataSource" class="org.apache.commons.dbcp.BasicDataSource" >
+        <property name="driverClassName" value="org.hsqldb.jdbcDriver" />
+        <property name="url" value="jdbc:hsqldb:mem:.;shutdown=false" />
+        <!--<property name="driverClassName" value="org.apache.derby.jdbc.ClientDriver" />-->
+        <!--<property name="url" value="jdbc:derby://localhost/tfs" />-->
+        <property name="username" value="sa" />
+        <property name="password" value="" />
+        <!--<property name="username" value="tfs" />-->
+        <!--<property name="password" value="tfs" />-->
+    </bean>
+
+    <bean id="mySessionFactory" class="org.springframework.orm.hibernate4.LocalSessionFactoryBean">
+        <property name="dataSource" ref="myDataSource"/>
+        <property name="mappingDirectoryLocations">
+            <list>
+                <value>classpath:engine-test/mapping</value>
+            </list>
+        </property>
+        <property name="hibernateProperties">
+            <props>
+                <prop key="hibernate.dialect">org.hibernate.dialect.HSQLDialect</prop>
+                <!--<prop key="hibernate.dialect">org.hibernate.dialect.DerbyTenSixDialect</prop>-->
+                <prop key="hibernate.hbm2ddl.auto">create-drop</prop>
+                <prop key="hibernate.show_sql">false</prop>
+                <!--<prop key="hibernate.current_session_context_class">jta</prop>-->
+                <!--<prop key="hibernate.current_session_context_class">thread</prop>-->
+                <prop key="hibernate.connection.pool_size">1</prop>
+                <!--<prop key="hibernate.cache.provider_class">org.hibernate.cache.NoCacheProvider</prop>-->
+            </props>
+        </property>
+    </bean>
+
+    <!-- Transaction management -->
+    <tx:annotation-driven/>
+    <!--<bean id="transactionManager" class="org.springframework.orm.hibernate3.HibernateTransactionManager">-->
+    <bean id="transactionManager" class="org.springframework.orm.hibernate4.HibernateTransactionManager">
+        <property name="sessionFactory" ref="mySessionFactory"/>
+    </bean>
+
+    <!-- these two are use to initialize the event publisher and the event listener registrar -->
+    <bean class="com.incuventure.ddd.infrastructure.events.impl.SimpleEventPublisher" />
+    <bean class="com.incuventure.ddd.infrastructure.events.impl.EventListenerProcessor" />
+
+    <bean class="com.incuventure.cqrs.infrastructure.StandardCommandHandlerProvider" />
+    <bean class="com.incuventure.cqrs.infrastructure.StandardCommandBus" />
+
+    <!-- this is for the new API dispatcher -->
+    <bean class="com.incuventure.cqrs.infrastructure.StandardAPICallDispatcher" />
+    <bean class="com.incuventure.cqrs.infrastructure.StandardAPIHandlerProvider" />
+
+    <bean class="com.incuventure.cqrs.infrastructure.StandardQueryBus" />
+    <!--<bean class="com.incuventure.cqrs.infrastructure.StandardTokenProvider"/>-->
+
+    <bean id="TokenProvider" class="com.incuventure.cqrs.infrastructure.StandardTokenProvider"/>
+
+    <!-- used in persistence test -->
+    <bean id="employeeRepository" class="com.incuventure.tests.persistence.infrastructure.repositories.hibernate.HibernateEmployeeRepository"/>
+
+    <!-- this one is for CQRS query with MyBatis-Spring -->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="myDataSource"/>
+        <property name="mapperLocations" value="classpath*:engine-test/mappers/*.xml"/>
+    </bean>
+
+    <bean id="finderComponentScanner" class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.incuventure.tests.queries"/>
+        <!--<property name="sqlSessionFactory" ref="sqlSessionFactory"/>-->
+    </bean>
+
+    <context:component-scan base-package="com.incuventure.tests.commands"></context:component-scan>
+    <context:component-scan base-package="com.incuventure.tests.events"></context:component-scan>
+
+    <context:annotation-config/>
+
+</beans>
